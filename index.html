@@ -12,21 +12,291 @@
 <body>
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
 <script>
+const STATE = { TITLE: 'TITLE', PLAYING: 'PLAYING', GAME_OVER: 'GAME_OVER' };
+
 class GameScene extends Phaser.Scene {
   constructor() {
     super('GameScene');
+    this.pipeGap = 140;
+    this.pipeSpeed = -180;
+    this.pipeSpawnInterval = 1600;
+    this.groundScrollSpeed = 2;
+    this.score = 0;
+    this.gameState = STATE.TITLE;
   }
 
   preload() {
-    // Asset loading will be added by task-pixel-art-assets
+    this.generateAssets();
+  }
+
+  generateAssets() {
+    const C = {
+      birdBody: 0xf8d830, birdWing: 0xe8a020, birdBeak: 0xf85030,
+      birdEyeW: 0xffffff, birdEyeP: 0x000000,
+      pipeBody: 0x58a828, pipeEdge: 0x387818, pipeCap: 0x68c038,
+      groundTop: 0xd8b060, groundBot: 0xc09848, groundLine: 0x58a828,
+      skyTop: 0x4ec0ca, skyBot: 0x71c5cf
+    };
+
+    const birdW = 34, birdH = 24;
+    const wingOffsets = [0, -4, 4];
+    for (let f = 0; f < 3; f++) {
+      const g = this.make.graphics({ add: false });
+      g.fillStyle(C.birdBody);
+      g.fillRect(4, 4, 24, 16);
+      g.fillStyle(C.birdWing);
+      g.fillRect(6, 10 + wingOffsets[f], 12, 6);
+      g.fillStyle(C.birdBeak);
+      g.fillRect(28, 8, 6, 6);
+      g.fillStyle(C.birdEyeW);
+      g.fillRect(22, 4, 8, 8);
+      g.fillStyle(C.birdEyeP);
+      g.fillRect(26, 6, 4, 4);
+      g.generateTexture('bird' + f, birdW, birdH);
+      g.destroy();
+    }
+
+    const pipeW = 52, pipeH = 400;
+    const gp = this.make.graphics({ add: false });
+    gp.fillStyle(C.pipeEdge);
+    gp.fillRect(0, 0, pipeW, pipeH);
+    gp.fillStyle(C.pipeBody);
+    gp.fillRect(4, 0, pipeW - 8, pipeH);
+    gp.fillStyle(C.pipeCap);
+    gp.fillRect(8, 0, 8, pipeH);
+    gp.generateTexture('pipe', pipeW, pipeH);
+    gp.destroy();
+
+    const capW = 60, capH = 26;
+    const gc = this.make.graphics({ add: false });
+    gc.fillStyle(C.pipeEdge);
+    gc.fillRect(0, 0, capW, capH);
+    gc.fillStyle(C.pipeBody);
+    gc.fillRect(4, 4, capW - 8, capH - 8);
+    gc.fillStyle(C.pipeCap);
+    gc.fillRect(8, 4, 8, capH - 8);
+    gc.generateTexture('pipeCap', capW, capH);
+    gc.destroy();
+
+    const grW = 400, grH = 80;
+    const gg = this.make.graphics({ add: false });
+    gg.fillStyle(C.groundBot);
+    gg.fillRect(0, 0, grW, grH);
+    gg.fillStyle(C.groundLine);
+    gg.fillRect(0, 0, grW, 4);
+    gg.fillStyle(C.groundTop);
+    gg.fillRect(0, 4, grW, 20);
+    gg.fillStyle(C.groundBot);
+    for (let x = 0; x < grW; x += 20) {
+      gg.fillRect(x, 24, 10, 4);
+    }
+    gg.generateTexture('ground', grW, grH);
+    gg.destroy();
+
+    const skyW = 400, skyH = 600;
+    const gs = this.make.graphics({ add: false });
+    gs.fillStyle(C.skyTop);
+    gs.fillRect(0, 0, skyW, skyH / 2);
+    gs.fillStyle(C.skyBot);
+    gs.fillRect(0, skyH / 2, skyW, skyH / 2);
+    gs.generateTexture('sky', skyW, skyH);
+    gs.destroy();
   }
 
   create() {
-    // Game object creation will be added by subsequent tasks
+    this.score = 0;
+    this.gameState = STATE.TITLE;
+
+    // Sky background
+    this.add.image(200, 300, 'sky');
+
+    // Bird animation
+    if (!this.anims.exists('flap')) {
+      this.anims.create({
+        key: 'flap',
+        frames: [{ key: 'bird0' }, { key: 'bird1' }, { key: 'bird2' }, { key: 'bird1' }],
+        frameRate: 8,
+        repeat: -1
+      });
+    }
+
+    // Bird
+    this.bird = this.physics.add.sprite(80, 300, 'bird0');
+    this.bird.setGravityY(0);
+    this.bird.setCollideWorldBounds(false);
+    this.bird.play('flap');
+    this.bird.setDepth(10);
+    this.bird.body.setSize(24, 16);
+
+    // Ground tileSprite at bottom
+    this.groundY = this.scale.height - 80;
+    this.ground = this.add.tileSprite(
+      this.scale.width / 2, this.groundY + 40,
+      this.scale.width, 80, 'ground'
+    );
+    this.ground.setDepth(10);
+    this.physics.add.existing(this.ground, true);
+
+    // Pipes group
+    this.pipes = this.physics.add.group();
+
+    // Collisions
+    this.physics.add.overlap(this.bird, this.pipes, this.hitPipe, null, this);
+    this.physics.add.overlap(this.bird, this.ground, this.hitPipe, null, this);
+
+    // Score text (hidden on title)
+    this.scoreText = this.add.text(200, 40, '0', {
+      fontSize: '48px', fontFamily: 'Arial', fontStyle: 'bold',
+      color: '#ffffff', stroke: '#000000', strokeThickness: 6
+    }).setOrigin(0.5).setDepth(20).setVisible(false);
+
+    // Input
+    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.flapReady = true;
+
+    // Title screen overlay
+    this.titleGroup = this.add.group();
+    var titleBg = this.add.rectangle(200, 300, 400, 600, 0x000000, 0.4).setDepth(30);
+    var titleText = this.add.text(200, 200, 'Flappy Bird', {
+      fontSize: '40px', fontFamily: 'Arial', fontStyle: 'bold',
+      color: '#f8d830', stroke: '#000000', strokeThickness: 6
+    }).setOrigin(0.5).setDepth(30);
+    var startText = this.add.text(200, 350, 'Press Space to Start', {
+      fontSize: '20px', fontFamily: 'Arial', fontStyle: 'bold',
+      color: '#ffffff', stroke: '#000000', strokeThickness: 4
+    }).setOrigin(0.5).setDepth(30);
+    this.titleGroup.addMultiple([titleBg, titleText, startText]);
+
+    // Game over overlay (hidden initially)
+    this.gameOverGroup = this.add.group();
+    var goBg = this.add.rectangle(200, 300, 400, 600, 0x000000, 0.5).setDepth(30).setVisible(false);
+    var goText = this.add.text(200, 200, 'Game Over', {
+      fontSize: '40px', fontFamily: 'Arial', fontStyle: 'bold',
+      color: '#f85030', stroke: '#000000', strokeThickness: 6
+    }).setOrigin(0.5).setDepth(30).setVisible(false);
+    this.finalScoreText = this.add.text(200, 280, 'Score: 0', {
+      fontSize: '28px', fontFamily: 'Arial', fontStyle: 'bold',
+      color: '#ffffff', stroke: '#000000', strokeThickness: 4
+    }).setOrigin(0.5).setDepth(30).setVisible(false);
+    var restartText = this.add.text(200, 380, 'Press Space to Restart', {
+      fontSize: '20px', fontFamily: 'Arial', fontStyle: 'bold',
+      color: '#ffffff', stroke: '#000000', strokeThickness: 4
+    }).setOrigin(0.5).setDepth(30).setVisible(false);
+    this.gameOverGroup.addMultiple([goBg, goText, this.finalScoreText, restartText]);
+
+    // Pause physics on title
+    this.physics.pause();
+  }
+
+  startGame() {
+    this.gameState = STATE.PLAYING;
+    this.titleGroup.setVisible(false);
+    this.scoreText.setVisible(true);
+    this.bird.setGravityY(800);
+    this.bird.setVelocityY(-300);
+    this.physics.resume();
+
+    this.pipeTimer = this.time.addEvent({
+      delay: this.pipeSpawnInterval,
+      callback: this.spawnPipePair,
+      callbackScope: this,
+      loop: true
+    });
+    this.spawnPipePair();
+  }
+
+  spawnPipePair() {
+    var gameW = this.scale.width;
+    var minY = 80;
+    var maxY = this.groundY - this.pipeGap - 80;
+    var gapTop = Phaser.Math.Between(minY, maxY);
+
+    var topPipe = this.pipes.create(gameW + 30, gapTop, 'pipe');
+    topPipe.setOrigin(0.5, 1);
+    topPipe.setFlipY(true);
+    topPipe.body.setVelocityX(this.pipeSpeed);
+    topPipe.body.setAllowGravity(false);
+    topPipe.body.setImmovable(true);
+    topPipe.setData('scored', false);
+    topPipe.setData('isTop', true);
+
+    var bottomPipe = this.pipes.create(gameW + 30, gapTop + this.pipeGap, 'pipe');
+    bottomPipe.setOrigin(0.5, 0);
+    bottomPipe.body.setVelocityX(this.pipeSpeed);
+    bottomPipe.body.setAllowGravity(false);
+    bottomPipe.body.setImmovable(true);
+  }
+
+  hitPipe() {
+    if (this.gameState !== STATE.PLAYING) return;
+    this.gameState = STATE.GAME_OVER;
+
+    this.bird.setVelocity(0, 0);
+    this.bird.setGravityY(0);
+    this.bird.anims.stop();
+    this.bird.setTint(0xff0000);
+    if (this.pipeTimer) this.pipeTimer.remove(false);
+    this.pipes.setVelocityX(0);
+    this.physics.pause();
+
+    // Show game over screen
+    this.finalScoreText.setText('Score: ' + this.score);
+    this.gameOverGroup.getChildren().forEach(function(child) { child.setVisible(true); });
+  }
+
+  restartGame() {
+    this.gameOverGroup.getChildren().forEach(function(child) { child.setVisible(false); });
+    this.scene.restart();
   }
 
   update() {
-    // Game loop logic will be added by subsequent tasks
+    // Handle spacebar transitions
+    if (this.spaceKey.isDown && this.flapReady) {
+      this.flapReady = false;
+      if (this.gameState === STATE.TITLE) {
+        this.startGame();
+        return;
+      }
+      if (this.gameState === STATE.GAME_OVER) {
+        this.restartGame();
+        return;
+      }
+      if (this.gameState === STATE.PLAYING) {
+        this.bird.setVelocityY(-300);
+      }
+    }
+    if (this.spaceKey.isUp) {
+      this.flapReady = true;
+    }
+
+    if (this.gameState !== STATE.PLAYING) return;
+
+    // Bird rotation
+    var v = this.bird.body.velocity.y;
+    this.bird.angle = Phaser.Math.Clamp(v / 8, -30, 90);
+
+    // Ceiling/ground kill
+    if (this.bird.y < 0 || this.bird.y > this.groundY) {
+      this.hitPipe();
+      return;
+    }
+
+    // Scroll ground
+    this.ground.tilePositionX += this.groundScrollSpeed;
+
+    // Score detection + pipe cleanup
+    var birdX = this.bird.x;
+    var self = this;
+    this.pipes.getChildren().forEach(function(pipe) {
+      if (pipe.getData('isTop') && !pipe.getData('scored') && pipe.x + pipe.width / 2 < birdX) {
+        pipe.setData('scored', true);
+        self.score++;
+        self.scoreText.setText(self.score);
+      }
+      if (pipe.x < -60) {
+        pipe.destroy();
+      }
+    });
   }
 }
 
@@ -38,10 +308,7 @@ const config = {
   backgroundColor: '#71c5cf',
   physics: {
     default: 'arcade',
-    arcade: {
-      gravity: { y: 0 },
-      debug: false
-    }
+    arcade: { gravity: { y: 0 }, debug: false }
   },
   scale: {
     mode: Phaser.Scale.FIT,
