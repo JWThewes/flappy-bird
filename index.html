@@ -15,18 +15,117 @@
 class GameScene extends Phaser.Scene {
   constructor() {
     super('GameScene');
+    this.pipeGap = 140;
+    this.pipeSpeed = -180;
+    this.pipeSpawnInterval = 1600;
+    this.groundScrollSpeed = 2;
   }
 
   preload() {
-    // Asset loading will be added by task-pixel-art-assets
+    this.createPipeTexture();
+    this.createGroundTexture();
+  }
+
+  createPipeTexture() {
+    var g = this.add.graphics();
+    var w = 52, h = 320;
+    // Pipe body
+    g.fillStyle(0x73bf2e);
+    g.fillRect(0, 0, w, h);
+    // Darker edge left
+    g.fillStyle(0x558b2f);
+    g.fillRect(0, 0, 4, h);
+    // Lighter edge right
+    g.fillStyle(0x8bc34a);
+    g.fillRect(w - 4, 0, 4, h);
+    // Pipe cap (lip)
+    g.fillStyle(0x558b2f);
+    g.fillRect(-3, 0, w + 6, 26);
+    g.fillStyle(0x73bf2e);
+    g.fillRect(-1, 2, w + 2, 22);
+    g.generateTexture('pipe', w + 6, h);
+    g.destroy();
+  }
+
+  createGroundTexture() {
+    var g = this.add.graphics();
+    var w = 32, h = 80;
+    // Dirt base
+    g.fillStyle(0xded895);
+    g.fillRect(0, 0, w, h);
+    // Green top strip
+    g.fillStyle(0x73bf2e);
+    g.fillRect(0, 0, w, 12);
+    g.fillStyle(0x558b2f);
+    g.fillRect(0, 12, w, 4);
+    // Dirt detail
+    g.fillStyle(0xc4a44a);
+    g.fillRect(4, 30, 8, 4);
+    g.fillRect(20, 50, 6, 4);
+    g.generateTexture('ground', w, h);
+    g.destroy();
   }
 
   create() {
-    // Game object creation will be added by subsequent tasks
+    // Ground tileSprite at bottom
+    this.groundY = this.scale.height - 80;
+    this.ground = this.add.tileSprite(
+      this.scale.width / 2, this.groundY + 40,
+      this.scale.width, 80, 'ground'
+    );
+    this.ground.setDepth(10);
+
+    // Physics body for ground (static)
+    this.physics.add.existing(this.ground, true);
+
+    // Pipe group using arcade physics
+    this.pipes = this.physics.add.group();
+
+    // Timer for spawning pipes
+    this.pipeTimer = this.time.addEvent({
+      delay: this.pipeSpawnInterval,
+      callback: this.spawnPipePair,
+      callbackScope: this,
+      loop: true
+    });
+
+    // Spawn first pair immediately
+    this.spawnPipePair();
+  }
+
+  spawnPipePair() {
+    var gameW = this.scale.width;
+    var minY = 80;
+    var maxY = this.groundY - this.pipeGap - 80;
+    var gapTop = Phaser.Math.Between(minY, maxY);
+
+    // Top pipe (flipped)
+    var topPipe = this.pipes.create(gameW + 30, gapTop, 'pipe');
+    topPipe.setOrigin(0.5, 1);
+    topPipe.setFlipY(true);
+    topPipe.body.setVelocityX(this.pipeSpeed);
+    topPipe.body.setAllowGravity(false);
+    topPipe.body.setImmovable(true);
+    topPipe.setData('scored', false);
+
+    // Bottom pipe
+    var bottomPipe = this.pipes.create(gameW + 30, gapTop + this.pipeGap, 'pipe');
+    bottomPipe.setOrigin(0.5, 0);
+    bottomPipe.body.setVelocityX(this.pipeSpeed);
+    bottomPipe.body.setAllowGravity(false);
+    bottomPipe.body.setImmovable(true);
   }
 
   update() {
-    // Game loop logic will be added by subsequent tasks
+    // Scroll ground
+    this.ground.tilePositionX += this.groundScrollSpeed;
+
+    // Recycle pipes that have scrolled off-screen
+    this.pipes.getChildren().forEach(function(pipe) {
+      if (pipe.x < -60) {
+        pipe.destroy();
+      }
+    });
   }
 }
 
