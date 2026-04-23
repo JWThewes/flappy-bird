@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flappy Bird</title>
+<style>
+  * { margin: 0; padding: 0; }
+  body { background: #000; overflow: hidden; }
+</style>
+</head>
+<body>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+<script>
+class GameScene extends Phaser.Scene {
+  constructor() {
+    super('GameScene');
+  }
+
+  preload() {
+    // Asset loading will be added by task-pixel-art-assets
+  }
+
+  create() {
+    // Game object creation will be added by subsequent tasks
+  }
+
+  update() {
+    // Game loop logic will be added by subsequent tasks
+  }
+}
+
+const config = {
+  type: Phaser.AUTO,
+  width: 400,
+  height: 600,
+  parent: document.body,
+  backgroundColor: '#71c5cf',
+  physics: {
+    default: 'arcade',
+    arcade: {
+      gravity: { y: 0 },
+      debug: false
+    }
+  },
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH
+  },
+  scene: [GameScene]
+};
+
+const game = new Phaser.Game(config);
+</script>
+</body>
+</html>
