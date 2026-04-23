@@ -18,7 +18,101 @@ class GameScene extends Phaser.Scene {
   }
 
   preload() {
-    // Asset loading will be added by task-pixel-art-assets
+    this.generateAssets();
+  }
+
+  generateAssets() {
+    // 8-bit color palette
+    const C = {
+      birdBody: 0xf8d830,   // yellow
+      birdWing: 0xe8a020,   // dark yellow/orange
+      birdBeak: 0xf85030,   // red-orange
+      birdEyeW: 0xffffff,   // white
+      birdEyeP: 0x000000,   // black
+      pipeBody: 0x58a828,   // green
+      pipeEdge: 0x387818,   // dark green
+      pipeCap:  0x68c038,   // light green
+      groundTop: 0xd8b060,  // sandy
+      groundBot: 0xc09848,  // darker sand
+      groundLine: 0x58a828, // green grass
+      skyTop: 0x4ec0ca,     // light blue
+      skyBot: 0x71c5cf      // slightly different blue
+    };
+
+    // --- Bird frames (3 flap positions) ---
+    const birdW = 34, birdH = 24;
+    const wingOffsets = [0, -4, 4]; // mid, up, down
+    for (let f = 0; f < 3; f++) {
+      const g = this.make.graphics({ add: false });
+      // body
+      g.fillStyle(C.birdBody);
+      g.fillRect(4, 4, 24, 16);
+      // wing
+      g.fillStyle(C.birdWing);
+      g.fillRect(6, 10 + wingOffsets[f], 12, 6);
+      // beak
+      g.fillStyle(C.birdBeak);
+      g.fillRect(28, 8, 6, 6);
+      // eye white
+      g.fillStyle(C.birdEyeW);
+      g.fillRect(22, 4, 8, 8);
+      // eye pupil
+      g.fillStyle(C.birdEyeP);
+      g.fillRect(26, 6, 4, 4);
+      g.generateTexture('bird' + f, birdW, birdH);
+      g.destroy();
+    }
+
+    // --- Pipe body ---
+    const pipeW = 52, pipeH = 400;
+    const gp = this.make.graphics({ add: false });
+    gp.fillStyle(C.pipeEdge);
+    gp.fillRect(0, 0, pipeW, pipeH);
+    gp.fillStyle(C.pipeBody);
+    gp.fillRect(4, 0, pipeW - 8, pipeH);
+    gp.fillStyle(C.pipeCap);
+    gp.fillRect(8, 0, 8, pipeH);
+    gp.generateTexture('pipe', pipeW, pipeH);
+    gp.destroy();
+
+    // --- Pipe cap (wider lip at opening) ---
+    const capW = 60, capH = 26;
+    const gc = this.make.graphics({ add: false });
+    gc.fillStyle(C.pipeEdge);
+    gc.fillRect(0, 0, capW, capH);
+    gc.fillStyle(C.pipeBody);
+    gc.fillRect(4, 4, capW - 8, capH - 8);
+    gc.fillStyle(C.pipeCap);
+    gc.fillRect(8, 4, 8, capH - 8);
+    gc.generateTexture('pipeCap', capW, capH);
+    gc.destroy();
+
+    // --- Ground ---
+    const grW = 400, grH = 80;
+    const gg = this.make.graphics({ add: false });
+    gg.fillStyle(C.groundBot);
+    gg.fillRect(0, 0, grW, grH);
+    gg.fillStyle(C.groundLine);
+    gg.fillRect(0, 0, grW, 4);
+    gg.fillStyle(C.groundTop);
+    gg.fillRect(0, 4, grW, 20);
+    // dashes for texture
+    gg.fillStyle(C.groundBot);
+    for (let x = 0; x < grW; x += 20) {
+      gg.fillRect(x, 24, 10, 4);
+    }
+    gg.generateTexture('ground', grW, grH);
+    gg.destroy();
+
+    // --- Sky background ---
+    const skyW = 400, skyH = 600;
+    const gs = this.make.graphics({ add: false });
+    gs.fillStyle(C.skyTop);
+    gs.fillRect(0, 0, skyW, skyH / 2);
+    gs.fillStyle(C.skyBot);
+    gs.fillRect(0, skyH / 2, skyW, skyH / 2);
+    gs.generateTexture('sky', skyW, skyH);
+    gs.destroy();
   }
 
   create() {
