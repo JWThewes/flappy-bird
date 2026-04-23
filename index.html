@@ -120,6 +120,9 @@ class GameScene extends Phaser.Scene {
   }
 
   create() {
+    // Sky background
+    this.add.image(200, 300, 'sky');
+
     // Ground tileSprite at bottom
     this.groundY = this.scale.height - 80;
     this.ground = this.add.tileSprite(
@@ -130,6 +133,30 @@ class GameScene extends Phaser.Scene {
 
     // Physics body for ground (static)
     this.physics.add.existing(this.ground, true);
+
+    // Bird animation from generated frames
+    this.anims.create({
+      key: 'flap',
+      frames: [
+        { key: 'bird0' },
+        { key: 'bird1' },
+        { key: 'bird2' },
+        { key: 'bird1' }
+      ],
+      frameRate: 8,
+      repeat: -1
+    });
+
+    // Bird sprite with arcade physics
+    this.bird = this.physics.add.sprite(80, 300, 'bird0');
+    this.bird.setGravityY(800);
+    this.bird.setCollideWorldBounds(false);
+    this.bird.play('flap');
+    this.bird.setDepth(10);
+
+    // Input
+    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.flapReady = true;
 
     // Pipe group using arcade physics
     this.pipes = this.physics.add.group();
@@ -170,6 +197,29 @@ class GameScene extends Phaser.Scene {
   }
 
   update() {
+    if (!this.bird || !this.bird.active) return;
+
+    // Flap on spacebar press
+    if (this.spaceKey.isDown && this.flapReady) {
+      this.bird.setVelocityY(-300);
+      this.flapReady = false;
+    }
+    if (this.spaceKey.isUp) {
+      this.flapReady = true;
+    }
+
+    // Rotation based on velocity
+    const v = this.bird.body.velocity.y;
+    this.bird.angle = Phaser.Math.Clamp(v / 8, -30, 90);
+
+    // Kill on ceiling or ground
+    if (this.bird.y < 0 || this.bird.y > this.groundY) {
+      this.bird.setVelocity(0, 0);
+      this.bird.setGravityY(0);
+      this.bird.active = false;
+      this.bird.anims.stop();
+    }
+
     // Scroll ground
     this.ground.tilePositionX += this.groundScrollSpeed;
 
