@@ -19,6 +19,8 @@ class GameScene extends Phaser.Scene {
     this.pipeSpeed = -180;
     this.pipeSpawnInterval = 1600;
     this.groundScrollSpeed = 2;
+    this.score = 0;
+    this.isGameOver = false;
   }
 
   preload() {
@@ -26,48 +28,34 @@ class GameScene extends Phaser.Scene {
   }
 
   generateAssets() {
-    // 8-bit color palette
     const C = {
-      birdBody: 0xf8d830,   // yellow
-      birdWing: 0xe8a020,   // dark yellow/orange
-      birdBeak: 0xf85030,   // red-orange
-      birdEyeW: 0xffffff,   // white
-      birdEyeP: 0x000000,   // black
-      pipeBody: 0x58a828,   // green
-      pipeEdge: 0x387818,   // dark green
-      pipeCap:  0x68c038,   // light green
-      groundTop: 0xd8b060,  // sandy
-      groundBot: 0xc09848,  // darker sand
-      groundLine: 0x58a828, // green grass
-      skyTop: 0x4ec0ca,     // light blue
-      skyBot: 0x71c5cf      // slightly different blue
+      birdBody: 0xf8d830, birdWing: 0xe8a020, birdBeak: 0xf85030,
+      birdEyeW: 0xffffff, birdEyeP: 0x000000,
+      pipeBody: 0x58a828, pipeEdge: 0x387818, pipeCap: 0x68c038,
+      groundTop: 0xd8b060, groundBot: 0xc09848, groundLine: 0x58a828,
+      skyTop: 0x4ec0ca, skyBot: 0x71c5cf
     };
 
-    // --- Bird frames (3 flap positions) ---
+    // Bird frames (3 flap positions)
     const birdW = 34, birdH = 24;
-    const wingOffsets = [0, -4, 4]; // mid, up, down
+    const wingOffsets = [0, -4, 4];
     for (let f = 0; f < 3; f++) {
       const g = this.make.graphics({ add: false });
-      // body
       g.fillStyle(C.birdBody);
       g.fillRect(4, 4, 24, 16);
-      // wing
       g.fillStyle(C.birdWing);
       g.fillRect(6, 10 + wingOffsets[f], 12, 6);
-      // beak
       g.fillStyle(C.birdBeak);
       g.fillRect(28, 8, 6, 6);
-      // eye white
       g.fillStyle(C.birdEyeW);
       g.fillRect(22, 4, 8, 8);
-      // eye pupil
       g.fillStyle(C.birdEyeP);
       g.fillRect(26, 6, 4, 4);
       g.generateTexture('bird' + f, birdW, birdH);
       g.destroy();
     }
 
-    // --- Pipe body ---
+    // Pipe body
     const pipeW = 52, pipeH = 400;
     const gp = this.make.graphics({ add: false });
     gp.fillStyle(C.pipeEdge);
@@ -79,7 +67,7 @@ class GameScene extends Phaser.Scene {
     gp.generateTexture('pipe', pipeW, pipeH);
     gp.destroy();
 
-    // --- Pipe cap (wider lip at opening) ---
+    // Pipe cap
     const capW = 60, capH = 26;
     const gc = this.make.graphics({ add: false });
     gc.fillStyle(C.pipeEdge);
@@ -91,7 +79,7 @@ class GameScene extends Phaser.Scene {
     gc.generateTexture('pipeCap', capW, capH);
     gc.destroy();
 
-    // --- Ground ---
+    // Ground
     const grW = 400, grH = 80;
     const gg = this.make.graphics({ add: false });
     gg.fillStyle(C.groundBot);
@@ -100,7 +88,6 @@ class GameScene extends Phaser.Scene {
     gg.fillRect(0, 0, grW, 4);
     gg.fillStyle(C.groundTop);
     gg.fillRect(0, 4, grW, 20);
-    // dashes for texture
     gg.fillStyle(C.groundBot);
     for (let x = 0; x < grW; x += 20) {
       gg.fillRect(x, 24, 10, 4);
@@ -108,7 +95,7 @@ class GameScene extends Phaser.Scene {
     gg.generateTexture('ground', grW, grH);
     gg.destroy();
 
-    // --- Sky background ---
+    // Sky
     const skyW = 400, skyH = 600;
     const gs = this.make.graphics({ add: false });
     gs.fillStyle(C.skyTop);
@@ -120,8 +107,29 @@ class GameScene extends Phaser.Scene {
   }
 
   create() {
+    this.score = 0;
+    this.isGameOver = false;
+
     // Sky background
     this.add.image(200, 300, 'sky');
+
+    // Bird animation
+    if (!this.anims.exists('flap')) {
+      this.anims.create({
+        key: 'flap',
+        frames: [{ key: 'bird0' }, { key: 'bird1' }, { key: 'bird2' }, { key: 'bird1' }],
+        frameRate: 8,
+        repeat: -1
+      });
+    }
+
+    // Bird sprite with arcade physics
+    this.bird = this.physics.add.sprite(80, 300, 'bird0');
+    this.bird.setGravityY(800);
+    this.bird.setCollideWorldBounds(false);
+    this.bird.play('flap');
+    this.bird.setDepth(10);
+    this.bird.body.setSize(24, 16);
 
     // Ground tileSprite at bottom
     this.groundY = this.scale.height - 80;
@@ -130,47 +138,39 @@ class GameScene extends Phaser.Scene {
       this.scale.width, 80, 'ground'
     );
     this.ground.setDepth(10);
-
-    // Physics body for ground (static)
     this.physics.add.existing(this.ground, true);
 
-    // Bird animation from generated frames
-    this.anims.create({
-      key: 'flap',
-      frames: [
-        { key: 'bird0' },
-        { key: 'bird1' },
-        { key: 'bird2' },
-        { key: 'bird1' }
-      ],
-      frameRate: 8,
-      repeat: -1
-    });
-
-    // Bird sprite with arcade physics
-    this.bird = this.physics.add.sprite(80, 300, 'bird0');
-    this.bird.setGravityY(800);
-    this.bird.setCollideWorldBounds(false);
-    this.bird.play('flap');
-    this.bird.setDepth(10);
-
-    // Input
-    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    this.flapReady = true;
-
-    // Pipe group using arcade physics
+    // Pipes group
     this.pipes = this.physics.add.group();
 
-    // Timer for spawning pipes
+    // Collision: bird vs pipes
+    this.physics.add.overlap(this.bird, this.pipes, this.hitPipe, null, this);
+
+    // Collision: bird vs ground
+    this.physics.add.overlap(this.bird, this.ground, this.hitPipe, null, this);
+
+    // Pipe spawn timer
     this.pipeTimer = this.time.addEvent({
       delay: this.pipeSpawnInterval,
       callback: this.spawnPipePair,
       callbackScope: this,
       loop: true
     });
-
-    // Spawn first pair immediately
     this.spawnPipePair();
+
+    // Score text (retro style)
+    this.scoreText = this.add.text(200, 40, '0', {
+      fontSize: '48px',
+      fontFamily: 'Arial',
+      fontStyle: 'bold',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 6
+    }).setOrigin(0.5).setDepth(20);
+
+    // Input
+    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.flapReady = true;
   }
 
   spawnPipePair() {
@@ -186,7 +186,6 @@ class GameScene extends Phaser.Scene {
     topPipe.body.setVelocityX(this.pipeSpeed);
     topPipe.body.setAllowGravity(false);
     topPipe.body.setImmovable(true);
-    topPipe.setData('scored', false);
 
     // Bottom pipe
     var bottomPipe = this.pipes.create(gameW + 30, gapTop + this.pipeGap, 'pipe');
@@ -194,12 +193,30 @@ class GameScene extends Phaser.Scene {
     bottomPipe.body.setVelocityX(this.pipeSpeed);
     bottomPipe.body.setAllowGravity(false);
     bottomPipe.body.setImmovable(true);
+
+    // Mark top pipe for scoring (only score once per pair)
+    topPipe.setData('scored', false);
+    topPipe.setData('isTop', true);
+  }
+
+  hitPipe() {
+    if (this.isGameOver) return;
+    this.isGameOver = true;
+
+    // Stop all movement
+    this.bird.setVelocity(0, 0);
+    this.bird.setGravityY(0);
+    this.bird.anims.stop();
+    this.bird.setTint(0xff0000);
+    this.pipeTimer.remove(false);
+    this.pipes.setVelocityX(0);
+    this.physics.pause();
   }
 
   update() {
-    if (!this.bird || !this.bird.active) return;
+    if (this.isGameOver) return;
 
-    // Flap on spacebar press
+    // Flap on spacebar
     if (this.spaceKey.isDown && this.flapReady) {
       this.bird.setVelocityY(-300);
       this.flapReady = false;
@@ -208,23 +225,30 @@ class GameScene extends Phaser.Scene {
       this.flapReady = true;
     }
 
-    // Rotation based on velocity
-    const v = this.bird.body.velocity.y;
+    // Bird rotation based on velocity
+    var v = this.bird.body.velocity.y;
     this.bird.angle = Phaser.Math.Clamp(v / 8, -30, 90);
 
-    // Kill on ceiling or ground
+    // Ceiling/ground kill
     if (this.bird.y < 0 || this.bird.y > this.groundY) {
-      this.bird.setVelocity(0, 0);
-      this.bird.setGravityY(0);
-      this.bird.active = false;
-      this.bird.anims.stop();
+      this.hitPipe();
+      return;
     }
 
     // Scroll ground
     this.ground.tilePositionX += this.groundScrollSpeed;
 
-    // Recycle pipes that have scrolled off-screen
+    // Score detection + pipe cleanup
+    var birdX = this.bird.x;
+    var self = this;
     this.pipes.getChildren().forEach(function(pipe) {
+      // Score when bird passes a top pipe
+      if (pipe.getData('isTop') && !pipe.getData('scored') && pipe.x + pipe.width / 2 < birdX) {
+        pipe.setData('scored', true);
+        self.score++;
+        self.scoreText.setText(self.score);
+      }
+      // Recycle off-screen pipes
       if (pipe.x < -60) {
         pipe.destroy();
       }
@@ -240,10 +264,7 @@ const config = {
   backgroundColor: '#71c5cf',
   physics: {
     default: 'arcade',
-    arcade: {
-      gravity: { y: 0 },
-      debug: false
-    }
+    arcade: { gravity: { y: 0 }, debug: false }
   },
   scale: {
     mode: Phaser.Scale.FIT,
