@@ -3,194 +3,46 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Flappy Bird</title>
+<title>Flappy Bird 3D</title>
 <style>
   * { margin: 0; padding: 0; }
   body { background: #000; overflow: hidden; }
 </style>
 </head>
 <body>
-<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="src/lighting.js"></script>
 <script>
-class GameScene extends Phaser.Scene {
-  constructor() {
-    super('GameScene');
-  }
+// Three.js Scene, Camera, Renderer
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 2, 12);
+camera.lookAt(0, 0, 0);
 
-  preload() {
-    this.generateAssets();
-  }
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+document.body.appendChild(renderer.domElement);
 
-  generateAssets() {
-    // 8-bit color palette
-    const C = {
-      birdBody: 0xf8d830,   // yellow
-      birdWing: 0xe8a020,   // dark yellow/orange
-      birdBeak: 0xf85030,   // red-orange
-      birdEyeW: 0xffffff,   // white
-      birdEyeP: 0x000000,   // black
-      pipeBody: 0x58a828,   // green
-      pipeEdge: 0x387818,   // dark green
-      pipeCap:  0x68c038,   // light green
-      groundTop: 0xd8b060,  // sandy
-      groundBot: 0xc09848,  // darker sand
-      groundLine: 0x58a828, // green grass
-      skyTop: 0x4ec0ca,     // light blue
-      skyBot: 0x71c5cf      // slightly different blue
-    };
+// Apply lighting, shadows, sky, and ground
+setupLighting(scene, renderer);
 
-    // --- Bird frames (3 flap positions) ---
-    const birdW = 34, birdH = 24;
-    const wingOffsets = [0, -4, 4]; // mid, up, down
-    for (let f = 0; f < 3; f++) {
-      const g = this.make.graphics({ add: false });
-      // body
-      g.fillStyle(C.birdBody);
-      g.fillRect(4, 4, 24, 16);
-      // wing
-      g.fillStyle(C.birdWing);
-      g.fillRect(6, 10 + wingOffsets[f], 12, 6);
-      // beak
-      g.fillStyle(C.birdBeak);
-      g.fillRect(28, 8, 6, 6);
-      // eye white
-      g.fillStyle(C.birdEyeW);
-      g.fillRect(22, 4, 8, 8);
-      // eye pupil
-      g.fillStyle(C.birdEyeP);
-      g.fillRect(26, 6, 4, 4);
-      g.generateTexture('bird' + f, birdW, birdH);
-      g.destroy();
-    }
+// Responsive resize
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
 
-    // --- Pipe body ---
-    const pipeW = 52, pipeH = 400;
-    const gp = this.make.graphics({ add: false });
-    gp.fillStyle(C.pipeEdge);
-    gp.fillRect(0, 0, pipeW, pipeH);
-    gp.fillStyle(C.pipeBody);
-    gp.fillRect(4, 0, pipeW - 8, pipeH);
-    gp.fillStyle(C.pipeCap);
-    gp.fillRect(8, 0, 8, pipeH);
-    gp.generateTexture('pipe', pipeW, pipeH);
-    gp.destroy();
-
-    // --- Pipe cap (wider lip at opening) ---
-    const capW = 60, capH = 26;
-    const gc = this.make.graphics({ add: false });
-    gc.fillStyle(C.pipeEdge);
-    gc.fillRect(0, 0, capW, capH);
-    gc.fillStyle(C.pipeBody);
-    gc.fillRect(4, 4, capW - 8, capH - 8);
-    gc.fillStyle(C.pipeCap);
-    gc.fillRect(8, 4, 8, capH - 8);
-    gc.generateTexture('pipeCap', capW, capH);
-    gc.destroy();
-
-    // --- Ground ---
-    const grW = 400, grH = 80;
-    const gg = this.make.graphics({ add: false });
-    gg.fillStyle(C.groundBot);
-    gg.fillRect(0, 0, grW, grH);
-    gg.fillStyle(C.groundLine);
-    gg.fillRect(0, 0, grW, 4);
-    gg.fillStyle(C.groundTop);
-    gg.fillRect(0, 4, grW, 20);
-    // dashes for texture
-    gg.fillStyle(C.groundBot);
-    for (let x = 0; x < grW; x += 20) {
-      gg.fillRect(x, 24, 10, 4);
-    }
-    gg.generateTexture('ground', grW, grH);
-    gg.destroy();
-
-    // --- Sky background ---
-    const skyW = 400, skyH = 600;
-    const gs = this.make.graphics({ add: false });
-    gs.fillStyle(C.skyTop);
-    gs.fillRect(0, 0, skyW, skyH / 2);
-    gs.fillStyle(C.skyBot);
-    gs.fillRect(0, skyH / 2, skyW, skyH / 2);
-    gs.generateTexture('sky', skyW, skyH);
-    gs.destroy();
-  }
-
-  create() {
-    // Sky background
-    this.add.image(200, 300, 'sky');
-
-    // Bird animation from generated frames
-    this.anims.create({
-      key: 'flap',
-      frames: [
-        { key: 'bird0' },
-        { key: 'bird1' },
-        { key: 'bird2' },
-        { key: 'bird1' }
-      ],
-      frameRate: 8,
-      repeat: -1
-    });
-
-    // Bird sprite with arcade physics
-    this.bird = this.physics.add.sprite(80, 300, 'bird0');
-    this.bird.setGravityY(800);
-    this.bird.setCollideWorldBounds(false);
-    this.bird.play('flap');
-    this.bird.setDepth(10);
-
-    // Input
-    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    this.flapReady = true;
-  }
-
-  update() {
-    if (!this.bird || !this.bird.active) return;
-
-    // Flap on spacebar press
-    if (this.spaceKey.isDown && this.flapReady) {
-      this.bird.setVelocityY(-300);
-      this.flapReady = false;
-    }
-    if (this.spaceKey.isUp) {
-      this.flapReady = true;
-    }
-
-    // Rotation based on velocity
-    const v = this.bird.body.velocity.y;
-    this.bird.angle = Phaser.Math.Clamp(v / 8, -30, 90);
-
-    // Kill on ceiling or ground
-    if (this.bird.y < 0 || this.bird.y > 580) {
-      this.bird.setVelocity(0, 0);
-      this.bird.setGravityY(0);
-      this.bird.active = false;
-      this.bird.anims.stop();
-    }
-  }
+// Game loop
+let lastTime = 0;
+function animate(time) {
+  requestAnimationFrame(animate);
+  const delta = (time - lastTime) / 1000;
+  lastTime = time;
+  renderer.render(scene, camera);
 }
-
-const config = {
-  type: Phaser.AUTO,
-  width: 400,
-  height: 600,
-  parent: document.body,
-  backgroundColor: '#71c5cf',
-  physics: {
-    default: 'arcade',
-    arcade: {
-      gravity: { y: 0 },
-      debug: false
-    }
-  },
-  scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH
-  },
-  scene: [GameScene]
-};
-
-const game = new Phaser.Game(config);
+requestAnimationFrame(animate);
 </script>
 </body>
 </html>
