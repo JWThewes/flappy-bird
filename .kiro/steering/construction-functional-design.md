@@ -1,9 +1,11 @@
 # Functional Design
 
 ## Purpose
+
 **Detailed business logic design per unit**
 
 Functional Design focuses on:
+
 - Detailed business logic and algorithms for the unit
 - Domain models with entities and relationships
 - Detailed business rules, validation logic, and constraints
@@ -12,6 +14,7 @@ Functional Design focuses on:
 **Note**: This builds upon high-level component design from Application Design (INCEPTION phase)
 
 ## Prerequisites
+
 - Units Generation must be complete
 - Unit Task nodes must exist in graph
 - Application Design recommended
@@ -32,6 +35,7 @@ Functional Design focuses on:
 **CRITICAL**: Default to asking questions when there is ANY ambiguity.
 
 Call `ask_question` with batched questions covering relevant areas:
+
 - **Business Logic** - core entities, workflows, data transformations
 - **Domain Model** - entity relationships, data structures
 - **Business Rules** - decision rules, validation logic, constraints
@@ -57,6 +61,7 @@ update_node(label: "Task", id: "unit-[name]", properties: {
 ```
 
 Or for complex designs, create dedicated nodes:
+
 ```
 add_node(label: "Requirement", id: "fd-[unit-name]-business-logic", properties: {
   title: "Functional Design - [Unit Name] - Business Logic",
@@ -69,13 +74,15 @@ add_node(label: "Requirement", id: "fd-[unit-name]-business-logic", properties: 
 
 ```
 update_node(label: "Sprint", id: env.sprintId, properties: {
-  current_stage: "functional-design"
+  current_stage: "functional-design",
+  phase_status: "active"
 })
 ```
 
 ### Step 6: Request Approval
 
 Call `ask_question` with:
+
 ```
 "Functional Design Complete - [unit-name]
 
