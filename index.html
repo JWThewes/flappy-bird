@@ -8,9 +8,70 @@
   * { margin: 0; padding: 0; }
   body { background: #000; overflow: hidden; }
   canvas { display: block; }
+  #ui-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    font-family: Arial, sans-serif;
+  }
+  #score-display {
+    position: absolute;
+    top: 40px;
+    width: 100%;
+    text-align: center;
+    color: #fff;
+    font-size: 56px;
+    font-weight: bold;
+    text-shadow: 2px 2px 6px rgba(0,0,0,0.7);
+    display: none;
+  }
+  #start-screen, #gameover-screen {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #fff;
+    text-shadow: 2px 2px 6px rgba(0,0,0,0.7);
+  }
+  #start-screen h1 {
+    font-size: 48px;
+    margin-bottom: 16px;
+  }
+  #start-screen p {
+    font-size: 22px;
+    opacity: 0.9;
+  }
+  #gameover-screen {
+    display: none;
+  }
+  #gameover-screen h1 {
+    font-size: 44px;
+    margin-bottom: 12px;
+  }
+  #gameover-screen .final-score {
+    font-size: 28px;
+    margin-bottom: 12px;
+  }
+  #gameover-screen p {
+    font-size: 20px;
+    opacity: 0.9;
+  }
 </style>
 </head>
 <body>
+<div id="ui-overlay">
+  <div id="score-display">0</div>
+  <div id="start-screen">
+    <h1>Flappy Bird 3D</h1>
+    <p>Click or Press Space to Play</p>
+  </div>
+  <div id="gameover-screen">
+    <h1>Game Over</h1>
+    <div class="final-score">Score: 0</div>
+    <p>Click or Press Space to Restart</p>
+  </div>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script>
 // === SCENE SETUP ===
@@ -140,38 +201,39 @@ let score = 0;
 let pipeTimer = 0;
 
 // === HUD (HTML overlay) ===
-const hud = document.createElement('div');
-hud.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:flex;flex-direction:column;align-items:center;font-family:Arial,sans-serif;';
-document.body.appendChild(hud);
-
-const scoreEl = document.createElement('div');
-scoreEl.style.cssText = 'color:#fff;font-size:48px;font-weight:bold;text-shadow:2px 2px 4px rgba(0,0,0,0.5);margin-top:40px;display:none;';
-hud.appendChild(scoreEl);
-
-const messageEl = document.createElement('div');
-messageEl.style.cssText = 'color:#fff;font-size:36px;font-weight:bold;text-shadow:2px 2px 4px rgba(0,0,0,0.5);position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;';
-messageEl.innerHTML = 'Flappy Bird 3D<br><span style="font-size:20px">Click or press Space to play</span>';
-hud.appendChild(messageEl);
+const scoreEl = document.getElementById('score-display');
+const startScreen = document.getElementById('start-screen');
+const gameoverScreen = document.getElementById('gameover-screen');
 
 function showScore() {
   scoreEl.style.display = 'block';
   scoreEl.textContent = score;
 }
 
-function showMessage(html) {
-  messageEl.style.display = 'block';
-  messageEl.innerHTML = html;
+function hideScore() {
+  scoreEl.style.display = 'none';
 }
 
-function hideMessage() {
-  messageEl.style.display = 'none';
+function showStart() {
+  startScreen.style.display = 'block';
+  gameoverScreen.style.display = 'none';
+}
+
+function hideStart() {
+  startScreen.style.display = 'none';
+}
+
+function showGameOver() {
+  gameoverScreen.querySelector('.final-score').textContent = 'Score: ' + score;
+  gameoverScreen.style.display = 'block';
+  scoreEl.style.display = 'none';
 }
 
 // === INPUT ===
 function flap() {
   if (gameState === 'ready') {
     gameState = 'playing';
-    hideMessage();
+    hideStart();
     showScore();
     velocity = FLAP_VELOCITY;
   } else if (gameState === 'playing') {
@@ -227,14 +289,14 @@ function restart() {
   pipeTimer = 0;
   gameState = 'ready';
 
-  scoreEl.style.display = 'none';
-  showMessage('Flappy Bird 3D<br><span style="font-size:20px">Click or press Space to play</span>');
+  hideScore();
+  showStart();
 }
 
 // === GAME OVER ===
 function gameOver() {
   gameState = 'gameover';
-  showMessage('Game Over<br><span style="font-size:24px">Score: ' + score + '</span><br><span style="font-size:18px">Click or press Space to restart</span>');
+  showGameOver();
 }
 
 // === GAME LOOP ===
