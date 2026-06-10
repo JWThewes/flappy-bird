@@ -138,6 +138,83 @@ function updateWingFlap(delta) {
   if (bird.children[5]) bird.children[5].rotation.x = -wingAngle;
 }
 
+// --- 3D Pipes ---
+const pipes = [];
+const PIPE_SPEED = 5;
+const PIPE_SPAWN_INTERVAL = 2;
+const PIPE_GAP = 4;
+const PIPE_RADIUS = 0.6;
+const PIPE_LENGTH = 10;
+const PIPE_SPAWN_X = 15;
+const PIPE_REMOVE_X = -15;
+let pipeTimer = 0;
+
+const pipeMaterial = new THREE.MeshStandardMaterial({
+  color: 0x58a828,
+  metalness: 0.4,
+  roughness: 0.3
+});
+
+const capMaterial = new THREE.MeshStandardMaterial({
+  color: 0x68c038,
+  metalness: 0.5,
+  roughness: 0.25
+});
+
+function createPipePair() {
+  const gapCenter = (Math.random() - 0.5) * 6;
+  const group = new THREE.Group();
+
+  // Bottom pipe
+  const botGeo = new THREE.CylinderGeometry(PIPE_RADIUS, PIPE_RADIUS, PIPE_LENGTH, 16);
+  const botPipe = new THREE.Mesh(botGeo, pipeMaterial);
+  botPipe.position.y = gapCenter - PIPE_GAP / 2 - PIPE_LENGTH / 2;
+  botPipe.castShadow = true;
+  botPipe.receiveShadow = true;
+  group.add(botPipe);
+
+  // Bottom cap
+  const capGeo = new THREE.CylinderGeometry(PIPE_RADIUS * 1.3, PIPE_RADIUS * 1.3, 0.4, 16);
+  const botCap = new THREE.Mesh(capGeo, capMaterial);
+  botCap.position.y = gapCenter - PIPE_GAP / 2;
+  botCap.castShadow = true;
+  group.add(botCap);
+
+  // Top pipe
+  const topPipe = new THREE.Mesh(botGeo, pipeMaterial);
+  topPipe.position.y = gapCenter + PIPE_GAP / 2 + PIPE_LENGTH / 2;
+  topPipe.castShadow = true;
+  topPipe.receiveShadow = true;
+  group.add(topPipe);
+
+  // Top cap
+  const topCap = new THREE.Mesh(capGeo, capMaterial);
+  topCap.position.y = gapCenter + PIPE_GAP / 2;
+  topCap.castShadow = true;
+  group.add(topCap);
+
+  group.position.x = PIPE_SPAWN_X;
+  group.userData.passed = false;
+  scene.add(group);
+  pipes.push(group);
+}
+
+function updatePipes(delta) {
+  pipeTimer += delta;
+  if (pipeTimer >= PIPE_SPAWN_INTERVAL) {
+    pipeTimer = 0;
+    createPipePair();
+  }
+
+  for (let i = pipes.length - 1; i >= 0; i--) {
+    pipes[i].position.x -= PIPE_SPEED * delta;
+    if (pipes[i].position.x < PIPE_REMOVE_X) {
+      scene.remove(pipes[i]);
+      pipes.splice(i, 1);
+    }
+  }
+}
+
 // --- Game Loop ---
 let lastTime = performance.now();
 
@@ -147,10 +224,12 @@ function animate() {
   const now = performance.now();
   const delta = (now - lastTime) / 1000;
   lastTime = now;
+  if (delta > 0.1) { renderer.render(scene, camera); return; }
 
   if (gameStarted) {
     birdVelocity += gravity * delta;
     bird.position.y += birdVelocity * delta;
+    updatePipes(delta);
   }
 
   updateBirdTilt();
