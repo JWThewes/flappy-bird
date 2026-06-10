@@ -5,14 +5,21 @@
 When resuming work on an existing AI-DLC sprint, follow these steps:
 
 ### Step 1: Load Current State from Graph
+
 Call `get_sprint_graph` to load all existing artifacts and understand the current state of the sprint.
 
 ### Step 2: Analyze Sprint Status
+
 From the Sprint node properties, determine:
+
 - **Current Phase**: INCEPTION, CONSTRUCTION, or REVIEW
 - **Current Stage**: The specific stage in progress
+- **Phase Status**: `active`, `ready_for_transition`, or `completed`
+
+If `phase_status` is `ready_for_transition`, do not ask for phase-transition approval. Present the ready state and tell the team to use the Sprint page transition button when they are ready.
 
 From the presence of graph nodes, determine what has been completed:
+
 - **Requirement nodes exist** -> Requirements Analysis is complete
 - **UserStory nodes exist** -> User Stories stage is complete
 - **Task nodes exist** -> Units Generation / planning is complete
@@ -20,12 +27,14 @@ From the presence of graph nodes, determine what has been completed:
 - **Review nodes exist** -> Review process has started
 
 ### Step 3: Present Status Summary
+
 Present the current status to the team:
 
 ```
 Welcome back! Based on the sprint graph, here's your current status:
 - **Current Phase**: [phase from Sprint node]
 - **Current Stage**: [stage from Sprint node]
+- **Phase Status**: [phase_status from Sprint node]
 - **Artifacts**: [count] Requirements, [count] User Stories, [count] Tasks, [count] Code Files
 - **Carried-Forward Context**: [count] artifacts from previous sprint (if any)
 - **Questions Asked**: [count] (view in Sprint page)
@@ -35,6 +44,7 @@ Continuing from where you left off.
 ```
 
 ### Step 4: Load Stage-Specific Context
+
 Before resuming any stage, load relevant artifacts from the graph:
 
 - **Early Stages (Workspace Detection, Reverse Engineering)**: Call `get_sprint_graph` for overview
@@ -44,6 +54,7 @@ Before resuming any stage, load relevant artifacts from the graph:
 - **For any stage**: Call `list_nodes(label: "Question")` to review previous Q&A context
 
 ### Step 5: Resume Execution
+
 Continue with the next incomplete stage following the normal workflow rules.
 
 ## Cross-Sprint Context Loading
@@ -53,7 +64,7 @@ When starting a **new sprint** (empty graph), the agent should load context from
 ### When to Load Cross-Sprint Context
 
 - **Always** at the start of a new sprint during the Workspace Detection stage
-- This happens automatically as part of Step 1.5 in `inception/workspace-detection.md`
+- This happens automatically as part of Step 1.5 in `inception-workspace-detection.md`
 
 ### MCP Tools for Cross-Sprint Context
 
@@ -79,6 +90,7 @@ Three tools support cross-sprint knowledge management:
 ### Carried-Forward Artifact Identification
 
 Carried-forward artifacts can be identified by:
+
 - **`carried_from_sprint` property**: Contains the source sprint ID
 - **`carried_from_id` property**: Contains the original node's ID
 - **`CARRIED_FROM` edge**: Directed edge from the new node to the original node
@@ -117,4 +129,5 @@ Continue with Workspace Detection Step 2
 7. **For new sprints**: Always check for previous sprint context via `get_previous_sprint_summary` and carry forward knowledge when available
 
 ## Error Handling
-If the graph is empty or Sprint node is missing, see `common/error-handling.md` for recovery procedures.
+
+If the graph is empty or Sprint node is missing, see `common-error-handling.md` for recovery procedures.
